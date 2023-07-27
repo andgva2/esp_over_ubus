@@ -10,7 +10,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/esp_over_ubus
 	CATEGORY:=ESP_Controller
 	TITLE:=esp_over_ubus
-	DEPENDS:=+libserialport +libubus +libubox +libblobmsg-json
+	DEPENDS:=+libserialport +libubus +libubox +libblobmsg-json +jansson
 endef
 
 define Package/esp_over_ubus/description

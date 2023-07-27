@@ -142,11 +142,10 @@ int send_to_device(struct Device **device, char *message)
 	ret = check(sp_set_parity(port, SP_PARITY_NONE));
 	ret = check(sp_set_stopbits(port, 1));
 	ret = check(sp_set_flowcontrol(port, SP_FLOWCONTROL_NONE));
-
 	if (ret != SP_OK) {
 		fprintf(stderr, "Error: Failed to configure port.\n");
-		return ret;
-	}	
+		goto cleanup;
+	}
 
 	unsigned int timeout = 1000;
 	int size	     = strlen(message);
@@ -155,14 +154,15 @@ int send_to_device(struct Device **device, char *message)
 	result	   = check(sp_blocking_write(port, message, size, timeout));
 	if (result < SP_OK) {
 		fprintf(stderr, "Error: Failed to write to port.\n");
-		return result;
+		ret = result;
+		goto cleanup;
 	}
-
 
 	if (result != size) {
 		fprintf(stderr, "Timed out, %d/%d bytes sent.\n", result, size);
 	}
 
+cleanup:;
 	ret = sp_close(port);
 	sp_free_port(port);
 	return ret;
@@ -176,6 +176,7 @@ char *receive_from_device(struct Device **device, int size)
 
 	int ret = 0;
 	struct sp_port *port;
+	char *buf = malloc(sizeof(char) * (size));
 
 	ret = check(sp_get_port_by_name((*device)->port, &port));
 	ret = check(sp_open(port, SP_MODE_READ));
@@ -184,19 +185,18 @@ char *receive_from_device(struct Device **device, int size)
 	ret = check(sp_set_parity(port, SP_PARITY_NONE));
 	ret = check(sp_set_stopbits(port, 1));
 	ret = check(sp_set_flowcontrol(port, SP_FLOWCONTROL_NONE));
+
 	if (ret != SP_OK) {
 		fprintf(stderr, "Error: Failed to configure port.\n");
-		return "";
+		buf	  = "";
+		goto cleanup;
 	}
 
-	char *buf = malloc(sizeof(char) * (size));
-
 	unsigned int timeout = 1000;
-	int result	     = check(sp_blocking_read(port, buf, size, timeout));
-
+	int result = check(sp_blocking_read(port, buf, size, timeout));
 	if (ret < SP_OK) {
 		fprintf(stderr, "Error: Failed to read from port.\n");
-		return "";
+		goto cleanup;
 	}
 
 	if (result > size) {
@@ -205,6 +205,7 @@ char *receive_from_device(struct Device **device, int size)
 
 	buf[result] = '\0';
 
+cleanup:;
 	ret = check(sp_close(port));
 	sp_free_port(port);
 	return buf;

@@ -1,13 +1,13 @@
 #include <ubus_utils.h>
 
 static int device_list_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
-		   const char *method, struct blob_attr *msg);
+			  const char *method, struct blob_attr *msg);
 
 static int set_on_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
-	      const char *method, struct blob_attr *msg);
+		     const char *method, struct blob_attr *msg);
 
 static int set_off_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
-	       const char *method, struct blob_attr *msg);
+		      const char *method, struct blob_attr *msg);
 
 enum {
 	SET_PORT,
@@ -46,7 +46,6 @@ static int device_list_cb(struct ubus_context *ctx, struct ubus_object *obj, str
 	int result = 0;
 	deviceList = get_device_list();
 	if (deviceList == NULL) {
-		result = 1;
 		goto cleanup;
 	}
 
@@ -62,9 +61,8 @@ static int device_list_cb(struct ubus_context *ctx, struct ubus_object *obj, str
 		blobmsg_close_table(&buf, device_cookie);
 	}
 
-	ubus_send_reply(ctx, req, buf.head);
-
 cleanup:;
+	ubus_send_reply(ctx, req, buf.head);
 	free_device_list(&deviceList);
 	blob_buf_free(&buf);
 
@@ -87,23 +85,22 @@ static int set_on_cb(struct ubus_context *ctx, struct ubus_object *obj, struct u
 	struct Device *deviceList = get_device_list();
 	int result		  = 0;
 	if (deviceList == NULL) {
-		result = 1;
 		goto cleanup;
 	}
 
 	struct Device *current = deviceList;
-
+	int is_found	       = 0;
 	while (current != NULL) {
 		if (strcmp(current->port, blobmsg_get_string(tb[SET_PORT])) == 0) {
-			result = 0;
+			is_found = 1;
 			break;
 		}
 
-		result	= 1;
-		current = current->next;
+		is_found = 0;
+		current	 = current->next;
 	}
 
-	if (result == 1) {
+	if (is_found == 0) {
 		goto cleanup;
 	}
 
@@ -115,8 +112,41 @@ static int set_on_cb(struct ubus_context *ctx, struct ubus_object *obj, struct u
 
 	char *retrieved = receive_from_device(&current, 300);
 	fprintf(stdout, "%s", retrieved);
+	if (strcmp(retrieved, "") == 0) {
+		goto cleanup;
+	}
 
-	blobmsg_add_string(&buf, NULL, retrieved);
+	json_t *root;
+	json_error_t error;
+	root = json_loads(retrieved, 0, &error);
+	if (!root) {
+		fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
+		goto cleanup;
+	}
+	if (!json_is_object(root)) {
+		fprintf(stderr, "error: root is not an object\n");
+		json_decref(root);
+		goto cleanup;
+	}
+
+	json_t *response, *resp_message;
+	response = json_object_get(root, "response");
+	printf("response: %lld\n", json_integer_value(response));
+	if (!json_is_integer(response)) {
+		fprintf(stderr, "error: response is not an integer\n");
+		json_decref(root);
+		goto cleanup;
+	}
+	resp_message = json_object_get(root, "msg");
+	printf("msg: %s\n", json_string_value(resp_message));
+	if (!json_is_string(resp_message)) {
+		fprintf(stderr, "error: msg is not a string\n");
+		json_decref(root);
+		goto cleanup;
+	}
+
+	blobmsg_add_u32(&buf, "response", json_integer_value(response));
+	blobmsg_add_string(&buf, "msg", json_string_value(resp_message));
 
 	ubus_send_reply(ctx, req, buf.head);
 
@@ -173,8 +203,42 @@ static int set_off_cb(struct ubus_context *ctx, struct ubus_object *obj, struct 
 
 	char *retrieved = receive_from_device(&current, 300);
 	fprintf(stdout, "%s", retrieved);
+	if (strcmp(retrieved, "") == 0) {
+		result = 1;
+		goto cleanup;
+	}
 
-	blobmsg_add_string(&buf, NULL, retrieved);
+	json_t *root;
+	json_error_t error;
+	root = json_loads(retrieved, 0, &error);
+	if (!root) {
+		fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
+		goto cleanup;
+	}
+	if (!json_is_object(root)) {
+		fprintf(stderr, "error: root is not an object\n");
+		json_decref(root);
+		goto cleanup;
+	}
+
+	json_t *response, *resp_message;
+	response = json_object_get(root, "response");
+	printf("response: %lld\n", json_integer_value(response));
+	if (!json_is_integer(response)) {
+		fprintf(stderr, "error: response is not an integer\n");
+		json_decref(root);
+		goto cleanup;
+	}
+	resp_message = json_object_get(root, "msg");
+	printf("msg: %s\n", json_string_value(resp_message));
+	if (!json_is_string(resp_message)) {
+		fprintf(stderr, "error: msg is not a string\n");
+		json_decref(root);
+		goto cleanup;
+	}
+
+	blobmsg_add_u32(&buf, "response", json_integer_value(response));
+	blobmsg_add_string(&buf, "msg", json_string_value(resp_message));
 
 	ubus_send_reply(ctx, req, buf.head);
 

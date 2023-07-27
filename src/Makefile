@@ -7,7 +7,7 @@ BUILD_FLAGS:=-I$(INCLUDE_DIR)
 BIN:=esp_over_ubus
 SRC:=$(wildcard *.c)
 
-LIBS:=-lserialport -lubus -lubox -lblobmsg_json
+LIBS:=-lserialport -lubus -lubox -lblobmsg_json -ljansson
 
 .PHONY: all clean
 
