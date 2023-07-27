@@ -8,13 +8,6 @@
 
 #include <device_utils.h>
 
-int device_list_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
-			  const char *method, struct blob_attr *msg);
-
-int set_on_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
-		     const char *method, struct blob_attr *msg);
-
-int set_off_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
-		      const char *method, struct blob_attr *msg);
+extern struct ubus_object esp_over_ubus_object;
 
 #endif // UBUS_UTILS_H

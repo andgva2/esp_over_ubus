@@ -4,8 +4,6 @@
 
 #include <ubus_utils.h>
 
-extern struct ubus_object esp_over_ubus_object;
-
 int main(void)
 {
 	struct ubus_context *ctx;

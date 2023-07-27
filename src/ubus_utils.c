@@ -1,5 +1,14 @@
 #include <ubus_utils.h>
 
+static int device_list_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
+		   const char *method, struct blob_attr *msg);
+
+static int set_on_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
+	      const char *method, struct blob_attr *msg);
+
+static int set_off_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
+	       const char *method, struct blob_attr *msg);
+
 enum {
 	SET_PORT,
 	SET_PIN,
@@ -27,7 +36,7 @@ struct ubus_object esp_over_ubus_object = {
 	.n_methods = ARRAY_SIZE(esp_over_ubus_methods),
 };
 
-int device_list_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
+static int device_list_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
 			  const char *method, struct blob_attr *msg)
 {
 	struct Device *deviceList = NULL;
@@ -53,16 +62,16 @@ int device_list_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubu
 		blobmsg_close_table(&buf, device_cookie);
 	}
 
-        ubus_send_reply(ctx, req, buf.head);
+	ubus_send_reply(ctx, req, buf.head);
 
-cleanup:;	
+cleanup:;
 	free_device_list(&deviceList);
 	blob_buf_free(&buf);
 
 	return result;
 }
 
-int set_on_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
+static int set_on_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
 		     const char *method, struct blob_attr *msg)
 {
 	struct blob_attr *tb[__SET_MAX];
@@ -100,8 +109,7 @@ int set_on_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_req
 
 	char message[300];
 
-	snprintf(message, sizeof(message), "{\"action\": \"on\", \"pin\": %d}",
-		 blobmsg_get_u32(tb[SET_PIN]));
+	snprintf(message, sizeof(message), "{\"action\": \"on\", \"pin\": %d}", blobmsg_get_u32(tb[SET_PIN]));
 
 	result = send_to_device(&current, message);
 
@@ -120,7 +128,7 @@ cleanup:;
 	return result;
 }
 
-int set_off_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
+static int set_off_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
 		      const char *method, struct blob_attr *msg)
 {
 	struct blob_attr *tb[__SET_MAX];
