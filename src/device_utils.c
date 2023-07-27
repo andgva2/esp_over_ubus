@@ -127,6 +127,45 @@ int check(enum sp_return result)
 	return result;
 }
 
+int conf_device(struct sp_port **port, char *port_name)
+{
+	int ret = 0;
+	ret	= check(sp_get_port_by_name(port_name, port));
+	if (ret != SP_OK) {
+		goto ret_check;
+	}
+	ret = check(sp_open(*port, SP_MODE_READ_WRITE));
+	if (ret != SP_OK) {
+		goto ret_check;
+	}
+	ret = check(sp_set_baudrate(*port, 9600));
+	if (ret != SP_OK) {
+		goto ret_check;
+	}
+	ret = check(sp_set_bits(*port, 8));
+	if (ret != SP_OK) {
+		goto ret_check;
+	}
+	ret = check(sp_set_parity(*port, SP_PARITY_NONE));
+	if (ret != SP_OK) {
+		goto ret_check;
+	}
+	ret = check(sp_set_stopbits(*port, 1));
+	if (ret != SP_OK) {
+		goto ret_check;
+	}
+	ret = check(sp_set_flowcontrol(*port, SP_FLOWCONTROL_NONE));
+	if (ret != SP_OK) {
+		goto ret_check;
+	}
+
+	return ret;
+
+ret_check:;
+	fprintf(stderr, "Error: Failed to configure port.\n");
+	return ret;
+}
+
 int send_to_device(struct Device **device, char *message)
 {
 	if ((*device) == NULL) {
@@ -135,15 +174,8 @@ int send_to_device(struct Device **device, char *message)
 
 	int ret = 0;
 	struct sp_port *port;
-	ret = check(sp_get_port_by_name((*device)->port, &port));
-	ret = check(sp_open(port, SP_MODE_WRITE));
-	ret = check(sp_set_baudrate(port, 9600));
-	ret = check(sp_set_bits(port, 8));
-	ret = check(sp_set_parity(port, SP_PARITY_NONE));
-	ret = check(sp_set_stopbits(port, 1));
-	ret = check(sp_set_flowcontrol(port, SP_FLOWCONTROL_NONE));
+	ret = conf_device(&port, (*device)->port);
 	if (ret != SP_OK) {
-		fprintf(stderr, "Error: Failed to configure port.\n");
 		goto cleanup;
 	}
 
@@ -178,22 +210,14 @@ char *receive_from_device(struct Device **device, int size)
 	struct sp_port *port;
 	char *buf = malloc(sizeof(char) * (size));
 
-	ret = check(sp_get_port_by_name((*device)->port, &port));
-	ret = check(sp_open(port, SP_MODE_READ));
-	ret = check(sp_set_baudrate(port, 9600));
-	ret = check(sp_set_bits(port, 8));
-	ret = check(sp_set_parity(port, SP_PARITY_NONE));
-	ret = check(sp_set_stopbits(port, 1));
-	ret = check(sp_set_flowcontrol(port, SP_FLOWCONTROL_NONE));
-
+	ret = conf_device(&port, (*device)->port);
 	if (ret != SP_OK) {
-		fprintf(stderr, "Error: Failed to configure port.\n");
-		buf	  = "";
+		buf = "";
 		goto cleanup;
 	}
 
 	unsigned int timeout = 1000;
-	int result = check(sp_blocking_read(port, buf, size, timeout));
+	int result	     = check(sp_blocking_read(port, buf, size, timeout));
 	if (ret < SP_OK) {
 		fprintf(stderr, "Error: Failed to read from port.\n");
 		goto cleanup;

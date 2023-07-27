@@ -69,6 +69,49 @@ cleanup:;
 	return result;
 }
 
+int deserialize_rep_msg(char *serialized_msg, int *resp, char **msg)
+{
+	int ret = 0;
+	*msg	= malloc(sizeof(char) * 300);
+
+	json_t *root;
+	json_error_t error;
+	root = json_loads(serialized_msg, 0, &error);
+	if (!root) {
+		fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
+		ret = 1;
+		goto exit;
+	}
+	if (!json_is_object(root)) {
+		fprintf(stderr, "error: root is not an object\n");
+		json_decref(root);
+		ret = 1;
+		goto exit;
+	}
+
+	json_t *response, *resp_message;
+	response = json_object_get(root, "response");
+	if (!json_is_integer(response)) {
+		fprintf(stderr, "error: response is not an integer\n");
+		json_decref(root);
+		ret = 1;
+		goto exit;
+	}
+	resp_message = json_object_get(root, "msg");
+	if (!json_is_string(resp_message)) {
+		fprintf(stderr, "error: msg is not a string\n");
+		json_decref(root);
+		ret = 1;
+		goto exit;
+	}
+
+	*resp = json_integer_value(response);
+	strcpy(*msg, json_string_value(resp_message));
+
+exit:;
+	return ret;
+}
+
 static int set_on_cb(struct ubus_context *ctx, struct ubus_object *obj, struct ubus_request_data *req,
 		     const char *method, struct blob_attr *msg)
 {
@@ -116,42 +159,19 @@ static int set_on_cb(struct ubus_context *ctx, struct ubus_object *obj, struct u
 		goto cleanup;
 	}
 
-	json_t *root;
-	json_error_t error;
-	root = json_loads(retrieved, 0, &error);
-	if (!root) {
-		fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
-		goto cleanup;
-	}
-	if (!json_is_object(root)) {
-		fprintf(stderr, "error: root is not an object\n");
-		json_decref(root);
-		goto cleanup;
-	}
+	int response;
+	char *resp_message;
 
-	json_t *response, *resp_message;
-	response = json_object_get(root, "response");
-	printf("response: %lld\n", json_integer_value(response));
-	if (!json_is_integer(response)) {
-		fprintf(stderr, "error: response is not an integer\n");
-		json_decref(root);
-		goto cleanup;
-	}
-	resp_message = json_object_get(root, "msg");
-	printf("msg: %s\n", json_string_value(resp_message));
-	if (!json_is_string(resp_message)) {
-		fprintf(stderr, "error: msg is not a string\n");
-		json_decref(root);
-		goto cleanup;
-	}
+	deserialize_rep_msg(retrieved, &response, &resp_message);
 
-	blobmsg_add_u32(&buf, "response", json_integer_value(response));
-	blobmsg_add_string(&buf, "msg", json_string_value(resp_message));
+	blobmsg_add_u32(&buf, "response", response);
+	blobmsg_add_string(&buf, "msg", resp_message);
 
 	ubus_send_reply(ctx, req, buf.head);
 
-	free(retrieved);
 cleanup:;
+	free(retrieved);
+	free(resp_message);
 	blob_buf_free(&buf);
 	free_device_list(&deviceList);
 
@@ -174,23 +194,22 @@ static int set_off_cb(struct ubus_context *ctx, struct ubus_object *obj, struct 
 	struct Device *deviceList = get_device_list();
 	int result		  = 0;
 	if (deviceList == NULL) {
-		result = 1;
 		goto cleanup;
 	}
 
 	struct Device *current = deviceList;
-
+	int is_found	       = 0;
 	while (current != NULL) {
 		if (strcmp(current->port, blobmsg_get_string(tb[SET_PORT])) == 0) {
-			result = 0;
+			is_found = 1;
 			break;
 		}
 
-		result	= 1;
-		current = current->next;
+		is_found = 0;
+		current	 = current->next;
 	}
 
-	if (result == 1) {
+	if (is_found == 0) {
 		goto cleanup;
 	}
 
@@ -208,42 +227,19 @@ static int set_off_cb(struct ubus_context *ctx, struct ubus_object *obj, struct 
 		goto cleanup;
 	}
 
-	json_t *root;
-	json_error_t error;
-	root = json_loads(retrieved, 0, &error);
-	if (!root) {
-		fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
-		goto cleanup;
-	}
-	if (!json_is_object(root)) {
-		fprintf(stderr, "error: root is not an object\n");
-		json_decref(root);
-		goto cleanup;
-	}
+	int response;
+	char *resp_message;
 
-	json_t *response, *resp_message;
-	response = json_object_get(root, "response");
-	printf("response: %lld\n", json_integer_value(response));
-	if (!json_is_integer(response)) {
-		fprintf(stderr, "error: response is not an integer\n");
-		json_decref(root);
-		goto cleanup;
-	}
-	resp_message = json_object_get(root, "msg");
-	printf("msg: %s\n", json_string_value(resp_message));
-	if (!json_is_string(resp_message)) {
-		fprintf(stderr, "error: msg is not a string\n");
-		json_decref(root);
-		goto cleanup;
-	}
+	deserialize_rep_msg(retrieved, &response, &resp_message);
 
-	blobmsg_add_u32(&buf, "response", json_integer_value(response));
-	blobmsg_add_string(&buf, "msg", json_string_value(resp_message));
+	blobmsg_add_u32(&buf, "response", response);
+	blobmsg_add_string(&buf, "msg", resp_message);
 
 	ubus_send_reply(ctx, req, buf.head);
 
-	free(retrieved);
 cleanup:;
+	free(retrieved);
+	free(resp_message);
 	blob_buf_free(&buf);
 	free_device_list(&deviceList);
 
